@@ -224,14 +224,14 @@ export class IOutbox extends BaseContract {
       destAddr?: string | null,
       l2Sender?: string | null,
       outboxEntryIndex?: BigNumberish | null,
-      transactionIndex?: null
+      merklePath?: null
     ): TypedEventFilter<
       [string, string, BigNumber, BigNumber],
       {
         destAddr: string
         l2Sender: string
         outboxEntryIndex: BigNumber
-        transactionIndex: BigNumber
+        merklePath: BigNumber
       }
     >
 
