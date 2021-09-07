@@ -448,6 +448,14 @@ rocksdb::Status ArbCore::reorgToMessageCountOrBefore(
         std::get<std::unique_ptr<MachineThread>>(std::move(setup));
     auto& output = new_machine->machine_state.output;
 
+    if (use_latest) {
+        std::cerr << "Loaded valid checkpoint, gas: " << output.arb_gas_used
+                  << ", messages: " << output.fully_processed_inbox.count
+                  << ", steps: " << output.total_steps
+                  << ", logs: " << output.log_count << ", sends"
+                  << output.send_count << "\n";
+    }
+
     auto log_inserted_count = logInsertedCount();
     if (!log_inserted_count.status.ok()) {
         std::cerr << "Error getting inserted count in Cursor Reorg: "

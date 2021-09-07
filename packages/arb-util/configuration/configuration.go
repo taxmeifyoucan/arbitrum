@@ -178,6 +178,7 @@ type NodeCache struct {
 
 type Persistent struct {
 	Chain        string `koanf:"chain"`
+	DatabasePath string `koanf:"database-path"`
 	GlobalConfig string `koanf:"global-config"`
 }
 
@@ -262,6 +263,7 @@ type Config struct {
 	Feed               Feed        `koanf:"feed"`
 	GasPrice           float64     `koanf:"gas-price"`
 	Healthcheck        Healthcheck `koanf:"healthcheck"`
+	FileInfo           bool        `koanf:"file-info"`
 	L1                 struct {
 		URL string `koanf:"url"`
 	} `koanf:"l1"`
@@ -279,20 +281,12 @@ type Config struct {
 	MetricsServer Metrics `koanf:"metrics-server"`
 }
 
-func (c *Config) GetNodeDatabasePath() string {
-	return path.Join(c.Persistent.Chain, "db")
-}
-
-func (c *Config) GetValidatorDatabasePath() string {
-	return path.Join(c.Persistent.Chain, "validator_db")
-}
-
 func ParseCLI(ctx context.Context) (*Config, *Wallet, *ethutils.RPCEthClient, *big.Int, error) {
 	f := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 
 	AddForwarderTarget(f)
 
-	return ParseNonRelay(ctx, f, "cli-wallet")
+	return ParseNonRelay(ctx, f, "cli-wallet", "db")
 }
 
 func AddL1PostingStrategyOptions(f *flag.FlagSet, prefix string) {
@@ -331,7 +325,7 @@ func ParseNode(ctx context.Context) (*Config, *Wallet, *ethutils.RPCEthClient, *
 	f.Int("node.ws.port", 8548, "websocket port")
 	f.String("node.ws.path", "/", "websocket path")
 
-	return ParseNonRelay(ctx, f, "rpc-wallet")
+	return ParseNonRelay(ctx, f, "rpc-wallet", "db")
 }
 
 func ParseValidator(ctx context.Context) (*Config, *Wallet, *ethutils.RPCEthClient, *big.Int, error) {
@@ -345,14 +339,21 @@ func ParseValidator(ctx context.Context) (*Config, *Wallet, *ethutils.RPCEthClie
 	f.Duration("validator.staker-delay", 60*time.Second, "delay between updating stake")
 	f.String("validator.wallet-factory-address", "", "strategy for validator to use")
 
-	return ParseNonRelay(ctx, f, "validator-wallet")
+	return ParseNonRelay(ctx, f, "validator-wallet", "validator_db")
 }
 
-func ParseNonRelay(ctx context.Context, f *flag.FlagSet, defaultWalletPathname string) (*Config, *Wallet, *ethutils.RPCEthClient, *big.Int, error) {
+func ParseNonRelay(
+	ctx context.Context,
+	f *flag.FlagSet,
+	defaultWalletPathname string,
+	defaultDatabasePathname string,
+) (*Config, *Wallet, *ethutils.RPCEthClient, *big.Int, error) {
 	f.String("bridge-utils-address", "", "bridgeutils contract address")
 
-	f.Duration("core.save-rocksdb-interval", 0, "duration between saving database backups, 0 to disable")
-	f.String("core.save-rocksdb-path", "db_checkpoints", "path to save database backups in")
+	f.Duration("core.save-rocksdb-interval", 0, "duration between saving database backups, disabled by default")
+	f.String("core.save-rocksdb-path", defaultDatabasePathname+"_checkpoints", "path to save database backups in")
+
+	f.Bool("file-info", false, "list file locations used and exit")
 
 	f.Bool("node.cache.allow-slow-lookup", false, "load L2 block from disk if not in memory cache")
 	f.Int("node.cache.lru-size", 1000, "number of recently used L2 block snapshots to hold in lru memory cache")
@@ -368,8 +369,9 @@ func ParseNonRelay(ctx context.Context, f *flag.FlagSet, defaultWalletPathname s
 
 	f.String("l1.url", "", "layer 1 ethereum node RPC URL")
 
-	f.String("persistent.global-config", ".arbitrum", "location global configuration is located")
 	f.String("persistent.chain", "", "path that chain specific state is located")
+	f.String("persistent.database-path", defaultDatabasePathname, "path to save database in")
+	f.String("persistent.global-config", ".arbitrum", "location global configuration is located")
 
 	f.String("wallet.local.pathname", defaultWalletPathname, "path to store wallet in")
 	f.String("wallet.local.password", PASSWORD_NOT_SET, "password for wallet")
@@ -495,6 +497,11 @@ func ParseNonRelay(ctx context.Context, f *flag.FlagSet, defaultWalletPathname s
 	if len(out.Rollup.Machine.Filename) == 0 {
 		// Machine not provided, so use default
 		out.Rollup.Machine.Filename = path.Join(out.Persistent.Chain, "arbos.mexe")
+	}
+
+	// Make database directory relative to persistent storage directory if not already absolute
+	if !filepath.IsAbs(out.Persistent.DatabasePath) {
+		out.Persistent.DatabasePath = path.Join(out.Persistent.Chain, out.Persistent.DatabasePath)
 	}
 
 	// Make rocksdb backup directory relative to persistent storage directory if not already absolute
@@ -787,6 +794,15 @@ func endCommonParse(k *koanf.Koanf) (*Config, *Wallet, error) {
 	// Don't pass around wallet contents with normal configuration
 	wallet := out.Wallet
 	out.Wallet = Wallet{}
+
+	if out.FileInfo {
+		fmt.Printf("Database:         %s\n", out.Persistent.DatabasePath)
+		fmt.Printf("Database Backup:  %s\n", out.Core.SaveRocksdbPath)
+		fmt.Printf("Machine:          %s\n", out.Rollup.Machine.Filename)
+		fmt.Printf("Wallet DIrectory: %s\n", wallet.Local.Pathname)
+
+		os.Exit(0)
+	}
 
 	return &out, &wallet, nil
 }
