@@ -59,7 +59,6 @@ type CoreCache struct {
 }
 
 type CoreProfile struct {
-	JustMetadata        bool  `koanf:"just-metadata"`
 	LoadCount           int64 `koanf:"load-count"`
 	ReorgTo             int64 `koanf:"reorg-to"`
 	ResetAllExceptInbox bool  `koanf:"reset-all-except-inbox"`
@@ -275,11 +274,11 @@ type Config struct {
 	Feed               Feed        `koanf:"feed"`
 	GasPrice           float64     `koanf:"gas-price"`
 	Healthcheck        Healthcheck `koanf:"healthcheck"`
-	FileInfo           bool        `koanf:"file-info"`
 	L1                 struct {
 		URL string `koanf:"url"`
 	} `koanf:"l1"`
 	Log           Log        `koanf:"log"`
+	Metadata      bool       `koanf:"metadata"`
 	Node          Node       `koanf:"node"`
 	Persistent    Persistent `koanf:"persistent"`
 	PProfEnable   bool       `koanf:"pprof-enable"`
@@ -363,7 +362,6 @@ func ParseNonRelay(
 ) (*Config, *Wallet, *ethutils.RPCEthClient, *big.Int, error) {
 	f.String("bridge-utils-address", "", "bridgeutils contract address")
 
-	f.Bool("core.profile.just-metadata", false, "just print database metadata and exit")
 	f.Int("core.profile.load-count", 0, "number of snapshots to load from database for profile test, zero to disable")
 	f.Int("core.profile.reorg-to", 0, "reorg to snapshot with given gas, zero to disable")
 	f.Bool("core.profile.reset-all-except-inbox", false, "remove all database info except for inbox")
@@ -372,7 +370,9 @@ func ParseNonRelay(
 	f.Duration("core.save-rocksdb-interval", 0, "duration between saving database backups, 0 to disable")
 	f.String("core.save-rocksdb-path", "db_checkpoints", "path to save database backups in")
 
-	f.Bool("file-info", false, "list file locations used and exit")
+	f.String("l1.url", "", "layer 1 ethereum node RPC URL")
+
+	f.Bool("metadata", false, "list file and database information and exit")
 
 	f.Bool("node.cache.allow-slow-lookup", false, "load L2 block from disk if not in memory cache")
 	f.Int("node.cache.lru-size", 1000, "number of recently used L2 block snapshots to hold in lru memory cache")
@@ -380,8 +380,6 @@ func ParseNonRelay(
 	//f.Duration("node.cache.timed-expire", 20*time.Minute, "length of time to hold L2 blocks in timed memory cache")
 
 	f.Uint64("node.chain-id", 42161, "chain id of the arbitrum chain")
-
-	f.String("l1.url", "", "layer 1 ethereum node RPC URL")
 
 	f.String("persistent.chain", "", "path that chain specific state is located")
 	f.String("persistent.database-path", defaultDatabasePathname, "path to save database in")
@@ -561,6 +559,23 @@ func ParseNonRelay(
 		if err != nil {
 			return nil, nil, nil, nil, errors.Wrapf(err, "unable to output machine to: %s", out.Rollup.Machine.Filename)
 		}
+	}
+
+	if out.Metadata {
+		fmt.Printf("Database:         %s\n", out.Persistent.DatabasePath)
+		fmt.Printf("Database Backup:  %s\n", out.Core.SaveRocksdbPath)
+		fmt.Printf("Machine:          %s\n", out.Rollup.Machine.Filename)
+		fmt.Printf("Wallet Directory: %s\n", wallet.Local.Pathname)
+
+		// Callee should exit after printing database metadata
+	} else {
+		logger.
+			Info().
+			Str("Database", out.Persistent.DatabasePath).
+			Str("Database Backup", out.Core.SaveRocksdbPath).
+			Str("Machine", out.Rollup.Machine.Filename).
+			Str("Wallet Directory", wallet.Local.Pathname).
+			Send()
 	}
 
 	return out, wallet, l1Client, l1ChainId, nil
@@ -811,23 +826,6 @@ func endCommonParse(k *koanf.Koanf) (*Config, *Wallet, error) {
 	// Don't pass around wallet contents with normal configuration
 	wallet := out.Wallet
 	out.Wallet = Wallet{}
-
-	if out.FileInfo {
-		fmt.Printf("Database:         %s\n", out.Persistent.DatabasePath)
-		fmt.Printf("Database Backup:  %s\n", out.Core.SaveRocksdbPath)
-		fmt.Printf("Machine:          %s\n", out.Rollup.Machine.Filename)
-		fmt.Printf("Wallet Directory: %s\n", wallet.Local.Pathname)
-
-		os.Exit(0)
-	} else {
-		logger.
-			Info().
-			Str("Database", out.Persistent.DatabasePath).
-			Str("Database Backup", out.Core.SaveRocksdbPath).
-			Str("Machine", out.Rollup.Machine.Filename).
-			Str("Wallet Directory", wallet.Local.Pathname).
-			Msg("downloading machine")
-	}
 
 	return &out, &wallet, nil
 }

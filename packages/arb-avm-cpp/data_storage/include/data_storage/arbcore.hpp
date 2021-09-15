@@ -98,9 +98,6 @@ struct ArbCoreConfig {
     // Delete all database entries except for inbox
     bool profile_reset_db_except_inbox{false};
 
-    // Exit after printing out metadata from database
-    bool profile_just_metadata;
-
     ArbCoreConfig() = default;
 };
 
@@ -205,6 +202,7 @@ class ArbCore {
             const ArbCoreConfig& coreConfig);
 
     ~ArbCore() { abortThread(); }
+    void printDatabaseMetadata();
     rocksdb::Status initialize(const LoadedExecutable& executable);
     [[nodiscard]] bool initialized() const;
     void operator()();
@@ -275,10 +273,11 @@ class ArbCore {
     // Logs Cursor interaction
     bool logsCursorRequest(size_t cursor_index, uint256_t count);
     ValueResult<logscursor_logs> logsCursorGetLogs(size_t cursor_index);
-    bool logsCursorCheckError(size_t cursor_index) const;
+    [[nodiscard]] bool logsCursorCheckError(size_t cursor_index) const;
     std::string logsCursorClearError(size_t cursor_index);
     bool logsCursorConfirmReceived(size_t cursor_index);
-    ValueResult<uint256_t> logsCursorPosition(size_t cursor_index) const;
+    [[nodiscard]] ValueResult<uint256_t> logsCursorPosition(
+        size_t cursor_index) const;
 
    private:
     // Logs cursor internal functions
@@ -316,26 +315,26 @@ class ArbCore {
         ExecutionCursor& execution_cursor);
 
    public:
-    ValueResult<uint256_t> logInsertedCount() const;
-    ValueResult<uint256_t> sendInsertedCount() const;
-    ValueResult<uint256_t> messageEntryInsertedCount() const;
-    ValueResult<uint256_t> delayedMessageEntryInsertedCount() const;
-    ValueResult<uint256_t> totalDelayedMessagesSequenced() const;
+    [[nodiscard]] ValueResult<uint256_t> logInsertedCount() const;
+    [[nodiscard]] ValueResult<uint256_t> sendInsertedCount() const;
+    [[nodiscard]] ValueResult<uint256_t> messageEntryInsertedCount() const;
+    [[nodiscard]] ValueResult<uint256_t> delayedMessageEntryInsertedCount()
+        const;
+    [[nodiscard]] ValueResult<uint256_t> totalDelayedMessagesSequenced() const;
     ValueResult<std::vector<value>> getLogs(uint256_t index,
                                             uint256_t count,
                                             ValueCache& valueCache);
-    ValueResult<std::vector<std::vector<unsigned char>>> getSends(
+    [[nodiscard]] ValueResult<std::vector<std::vector<unsigned char>>> getSends(
         uint256_t index,
         uint256_t count) const;
 
-    ValueResult<std::vector<std::vector<unsigned char>>> getMessages(
-        uint256_t index,
-        uint256_t count) const;
-    ValueResult<std::vector<std::vector<unsigned char>>> getSequencerBatchItems(
-        uint256_t index) const;
-    ValueResult<uint256_t> getSequencerBlockNumberAt(
+    [[nodiscard]] ValueResult<std::vector<std::vector<unsigned char>>>
+    getMessages(uint256_t index, uint256_t count) const;
+    [[nodiscard]] ValueResult<std::vector<std::vector<unsigned char>>>
+    getSequencerBatchItems(uint256_t index) const;
+    [[nodiscard]] ValueResult<uint256_t> getSequencerBlockNumberAt(
         uint256_t sequence_number) const;
-    ValueResult<std::vector<unsigned char>> genInboxProof(
+    [[nodiscard]] ValueResult<std::vector<unsigned char>> genInboxProof(
         uint256_t seq_num,
         uint256_t batch_index,
         uint256_t batch_end_count) const;
@@ -348,25 +347,22 @@ class ArbCore {
         uint256_t index1,
         uint256_t index2);
 
-    ValueResult<size_t> countMatchingBatchAccs(
+    [[nodiscard]] ValueResult<size_t> countMatchingBatchAccs(
         std::vector<std::pair<uint256_t, uint256_t>> seq_nums_and_accs) const;
 
-    ValueResult<uint256_t> getDelayedMessagesToSequence(
+    [[nodiscard]] ValueResult<uint256_t> getDelayedMessagesToSequence(
         uint256_t max_block_number) const;
 
    private:
-    ValueResult<std::vector<RawMessageInfo>> getMessagesImpl(
+    [[nodiscard]] ValueResult<std::vector<RawMessageInfo>> getMessagesImpl(
         const ReadConsistentTransaction& tx,
         uint256_t index,
         uint256_t count,
         std::optional<uint256_t> start_acc) const;
-    ValueResult<uint256_t> getNextSequencerBatchItemAccumulator(
+    [[nodiscard]] ValueResult<uint256_t> getNextSequencerBatchItemAccumulator(
         const ReadTransaction& tx,
         uint256_t sequence_number) const;
 
-    template <typename T>
-    rocksdb::Status resolveStagedMessage(const ReadTransaction& tx,
-                                         T& machine_state);
     // Private database interaction
     ValueResult<uint256_t> logInsertedCountImpl(
         const ReadTransaction& tx) const;
@@ -374,18 +370,18 @@ class ArbCore {
     ValueResult<uint256_t> logProcessedCount(ReadTransaction& tx) const;
     rocksdb::Status updateLogProcessedCount(ReadWriteTransaction& tx,
                                             rocksdb::Slice value_slice);
-    ValueResult<uint256_t> sendInsertedCountImpl(
+    [[nodiscard]] ValueResult<uint256_t> sendInsertedCountImpl(
         const ReadTransaction& tx) const;
 
     ValueResult<uint256_t> sendProcessedCount(ReadTransaction& tx) const;
     rocksdb::Status updateSendProcessedCount(ReadWriteTransaction& tx,
                                              rocksdb::Slice value_slice);
     ValueResult<uint256_t> schemaVersion(ReadTransaction& tx) const;
-    ValueResult<uint256_t> messageEntryInsertedCountImpl(
+    [[nodiscard]] ValueResult<uint256_t> messageEntryInsertedCountImpl(
         const ReadTransaction& tx) const;
-    ValueResult<uint256_t> delayedMessageEntryInsertedCountImpl(
+    [[nodiscard]] ValueResult<uint256_t> delayedMessageEntryInsertedCountImpl(
         const ReadTransaction& tx) const;
-    ValueResult<uint256_t> totalDelayedMessagesSequencedImpl(
+    [[nodiscard]] ValueResult<uint256_t> totalDelayedMessagesSequencedImpl(
         const ReadTransaction& tx) const;
 
     rocksdb::Status saveLogs(ReadWriteTransaction& tx,
@@ -402,13 +398,13 @@ class ArbCore {
                                                   uint256_t count,
                                                   ValueCache& valueCache);
 
-    ValueResult<std::vector<MachineMessage>> readNextMessages(
+    [[nodiscard]] ValueResult<std::vector<MachineMessage>> readNextMessages(
         const ReadConsistentTransaction& tx,
         const InboxState& fully_processed_inbox,
         size_t count) const;
 
-    bool isValid(const ReadTransaction& tx,
-                 const InboxState& fully_processed_inbox) const;
+    [[nodiscard]] bool isValid(const ReadTransaction& tx,
+                               const InboxState& fully_processed_inbox) const;
 
     std::variant<rocksdb::Status, ExecutionCursor> getClosestExecutionMachine(
         ReadTransaction& tx,
@@ -439,7 +435,7 @@ class ArbCore {
     rocksdb::Status logsCursorSaveCurrentTotalCount(ReadWriteTransaction& tx,
                                                     size_t cursor_index,
                                                     uint256_t count);
-    ValueResult<uint256_t> logsCursorGetCurrentTotalCount(
+    [[nodiscard]] ValueResult<uint256_t> logsCursorGetCurrentTotalCount(
         const ReadTransaction& tx,
         size_t cursor_index) const;
 };

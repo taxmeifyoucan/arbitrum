@@ -50,7 +50,6 @@ CArbStorage* createArbStorage(const char* db_path,
     coreConfig.profile_load_count = arb_core_config.profile_load_count;
     coreConfig.profile_reset_db_except_inbox =
         arb_core_config.profile_reset_db_except_inbox;
-    coreConfig.profile_just_metadata = arb_core_config.profile_just_metadata;
 
     try {
         auto storage = new ArbStorage(string_filename, coreConfig);
@@ -59,6 +58,11 @@ CArbStorage* createArbStorage(const char* db_path,
         std::cerr << "Error creating storage: " << e.what() << std::endl;
         return nullptr;
     }
+}
+
+void printDatabaseMetadata(CArbStorage* storage_ptr) {
+    auto storage = static_cast<ArbStorage*>(storage_ptr);
+    storage->printDatabaseMetadata();
 }
 
 int initializeArbStorage(CArbStorage* storage_ptr,

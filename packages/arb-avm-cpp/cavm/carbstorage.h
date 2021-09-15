@@ -39,11 +39,11 @@ typedef struct {
     int32_t profile_run_until;
     int32_t profile_load_count;
     int32_t profile_reset_db_except_inbox;
-    int32_t profile_just_metadata;
 } CArbCoreConfig;
 
 CArbStorage* createArbStorage(const char* db_path,
                               CArbCoreConfig arb_core_config);
+void printDatabaseMetadata(CArbStorage* storage_ptr);
 int initializeArbStorage(CArbStorage* storage_ptr, const char* executable_path);
 int arbStorageInitialized(CArbStorage* storage_ptr);
 void destroyArbStorage(CArbStorage* storage);

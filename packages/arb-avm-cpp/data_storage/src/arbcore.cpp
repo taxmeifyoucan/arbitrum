@@ -148,6 +148,70 @@ bool ArbCore::deliverMessages(
     return true;
 }
 
+void ArbCore::printDatabaseMetadata() {
+    ReadTransaction tx(data_storage);
+    auto schema_version_result = schemaVersion(tx);
+    std::cout << "schema version:                   ";
+    if (!schema_version_result.status.ok()) {
+        std::cout << schema_version_result.status.ToString() << "\n";
+    } else {
+        std::cout << schema_version_result.data << "\n";
+    }
+    auto log_inserted_count_result = logInsertedCountImpl(tx);
+    std::cout << "log inserted count:               ";
+    if (!log_inserted_count_result.status.ok()) {
+        std::cout << log_inserted_count_result.status.ToString() << "\n";
+    } else {
+        std::cout << log_inserted_count_result.data << "\n";
+    }
+    auto log_processed_count_result = logProcessedCount(tx);
+    std::cout << "log processed count:              ";
+    if (!log_processed_count_result.status.ok()) {
+        std::cout << log_processed_count_result.status.ToString() << "\n";
+    } else {
+        std::cout << log_processed_count_result.data << "\n";
+    }
+    auto send_inserted_count_result = sendInsertedCountImpl(tx);
+    std::cout << "send inserted count:              ";
+    if (!send_inserted_count_result.status.ok()) {
+        std::cout << send_inserted_count_result.status.ToString() << "\n";
+    } else {
+        std::cout << send_inserted_count_result.data << "\n";
+    }
+    auto send_processed_count_result = sendProcessedCount(tx);
+    std::cout << "send processed count:             ";
+    if (!send_processed_count_result.status.ok()) {
+        std::cout << send_processed_count_result.status.ToString() << "\n";
+    } else {
+        std::cout << send_processed_count_result.data << "\n";
+    }
+    auto message_inserted_count_result = messageEntryInsertedCountImpl(tx);
+    std::cout << "message inserted count:           ";
+    if (!message_inserted_count_result.status.ok()) {
+        std::cout << message_inserted_count_result.status.ToString() << "\n";
+    } else {
+        std::cout << message_inserted_count_result.data << "\n";
+    }
+    auto delayed_message_inserted_count_result =
+        delayedMessageEntryInsertedCountImpl(tx);
+    std::cout << "delayed message inserted count:   ";
+    if (!delayed_message_inserted_count_result.status.ok()) {
+        std::cout << delayed_message_inserted_count_result.status.ToString()
+                  << "\n";
+    } else {
+        std::cout << delayed_message_inserted_count_result.data << "\n";
+    }
+    auto total_delayed_messages_sequenced_result =
+        totalDelayedMessagesSequencedImpl(tx);
+    std::cout << "total delayed messages sequenced: ";
+    if (!total_delayed_messages_sequenced_result.status.ok()) {
+        std::cout << total_delayed_messages_sequenced_result.status.ToString()
+                  << "\n";
+    } else {
+        std::cout << total_delayed_messages_sequenced_result.data << "\n";
+    }
+}
+
 rocksdb::Status ArbCore::initialize(const LoadedExecutable& executable) {
     // Use latest existing checkpoint
     ValueCache cache{1, 0};
@@ -743,6 +807,17 @@ void ArbCore::operator()() {
                              "reorgToMessageCountOrBefore: "
                           << status.ToString() << std::endl;
             }
+
+            std::cerr
+                << "Initialized with valid checkpoint"
+                << ", gas: " << last_machine->machine_state.output.arb_gas_used
+                << ", messages: "
+                << last_machine->machine_state.output.fully_processed_inbox
+                       .count
+                << ", steps: " << last_machine->machine_state.output.total_steps
+                << ", logs: " << last_machine->machine_state.output.log_count
+                << ", sends: " << last_machine->machine_state.output.send_count
+                << "\n";
         }
         if (message_data_status == MESSAGES_READY) {
             // Reorg might occur while adding messages

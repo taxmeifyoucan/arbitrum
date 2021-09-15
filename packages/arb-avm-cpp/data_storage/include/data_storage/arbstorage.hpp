@@ -41,6 +41,7 @@ class ArbStorage {
    public:
     ArbStorage(const std::string& db_path, const ArbCoreConfig& coreConfig);
     bool closeArbStorage();
+    void printDatabaseMetadata();
     rocksdb::Status initialize(const LoadedExecutable& executable);
     rocksdb::Status initialize(const std::string& executable_path);
     [[nodiscard]] bool initialized() const;
